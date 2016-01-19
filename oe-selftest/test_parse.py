@@ -1,13 +1,14 @@
-from base import PatchTestBase
-import os
 from subprocess import Popen, PIPE
+import os
+import patchtest
+import unittest
 
-class TestParse(PatchTestBase):
+class TestParse(unittest.TestCase):
     """ Test parsing using oe-selftest"""
     @classmethod
     def setUpClass(cls):
-        super(cls, TestParse).setUpClass()
-        cls.bb_init_file = os.path.join(cls.repo.repodir, 'oe-init-build-env')
+        cls.repodir = patchtest.PatchTestArgs.repodir
+        cls.bb_init_file = os.path.join(cls.repodir, 'oe-init-build-env')
 
     def test_bb_init_script(self):
         """ Check if the bb init script is an actual file"""
@@ -16,11 +17,11 @@ class TestParse(PatchTestBase):
     def test_oe_selftest_parse(self):
         """ A simple oe-selftest parse test"""
         cmds = [
-            'cd %s' % self.repo.repodir,
+            'cd %s' % self.repodir,
             'source %s' % self.bb_init_file,
             'bitbake-layers add-layer ../meta-selftest',
             'oe-selftest --run-tests bbtests.BitbakeTests.test_just_parse'
         ]
-        sp = Popen(';'.join(cmds), cwd=self.repo.repodir, shell=True, stdout=PIPE, stderr=PIPE)
+        sp = Popen(';'.join(cmds), cwd=self.repodir, shell=True, stdout=PIPE, stderr=PIPE)
         sp.communicate()
         self.assertEquals(0, sp.returncode)

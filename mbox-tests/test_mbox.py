@@ -42,14 +42,14 @@ class TestMbox(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.mbox = None
-        mboxurl = Repo(pta.repodir, mbox=pta.mbox, series=pta.series, revision=pta.revision).mbox
+        item = Repo(pta.repodir, mbox=pta.mbox, series=pta.series, revision=pta.revision, commit=pta.commit, branch=pta.branch).item
 
         # the mbox can be either a file or an URL, so get content in both cases
-        if mboxurl.startswith('http'):
-            r = requests.get(mboxurl)
+        if item.startswith('http'):
+            r = requests.get(item)
             cls.mbox = r.text.split('\n')
         else:
-            with open(os.path.abspath(mboxurl)) as f:
+            with open(os.path.abspath(item)) as f:
                  cls.mbox = f.readlines()
 
     def test_signed_off_by(self):

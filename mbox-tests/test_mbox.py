@@ -67,3 +67,10 @@ class TestMbox(unittest.TestCase):
         fields = parse_keyvals(TestMbox.mbox)
         summary = fields[_field_name].splitlines()[(0)]
         self.assertTrue(len(summary) <= TestMbox.field_max_len, "summary is too large, it should be less than %s characters" % TestMbox.field_max_len)
+
+    def test_description(self):
+        """ Check description is present"""
+        _field_name = 'Subject' # Description lines follow Subject
+        fields = parse_keyvals(TestMbox.mbox)
+        description = ' '.join(fields[_field_name].splitlines()[1:]).strip()
+        self.assertTrue(description)        

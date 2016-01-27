@@ -19,18 +19,13 @@ def parse_keyvals(lines, pattern=r'^([\w-]+):\s(.+)', endstr='---'):
         specifies how to find those key pairs (should return two match groups
         and the endstr argument specifies where to stop parsing."""
 
-    _current_key, _keyvals = None, {}
+    _keyvals = {}
+    _text = ''
     for line in lines:
         if line.startswith(endstr):
             break
-        match = re.match(pattern, line)
-        if match:
-            groups = match.groups()
-            _current_key = groups[0]
-            _keyvals[_current_key] = groups[1].strip()
-        elif _current_key:
-            _keyvals[_current_key] += '%s' % line
-    return _keyvals
+        _text += line
+    return _text.split(pattern)
 
 @unittest.skipUnless(pta.mbox or pta.series, "requires the mbox or series argument")
 class TestMbox(unittest.TestCase):
@@ -51,6 +46,8 @@ class TestMbox(unittest.TestCase):
         else:
             with open(os.path.abspath(mboxurl)) as f:
                  cls.mbox = f.readlines()
+        if not ''.join(cls.mbox).strip():
+            raise(AssertionError, 'mbox should not be empty')
 
     def test_signed_off_by(self):
         """ Check signed off by is present in each file """
@@ -63,14 +60,18 @@ class TestMbox(unittest.TestCase):
 
     def test_summary_length(self):
         """ Check for a summary length"""
-        _field_name = 'Subject'
-        fields = parse_keyvals(TestMbox.mbox)
-        summary = fields[_field_name].splitlines()[(0)]
-        self.assertTrue(len(summary) <= TestMbox.field_max_len, "summary is too large, it should be less than %s characters" % TestMbox.field_max_len)
+        _field = 'Subject: '
+        _max = TestMbox.field_max_len
+        summary = ' '.join(find_lines(TestMbox.mbox, _field))
+        summary = re.sub('%s|\[[\w_/ -]*\] ' % _field, '',summary)
+        print '<<Summary found: %s>>' % summary
+        self.assertTrue(len(summary) <= _max, "summary too long, it should be at most %s characters. The summary is '%s'" % (TestMbox.field_max_len, summary))
 
     def test_description(self):
         """ Check description is present"""
-        _field_name = 'Subject' # Description lines follow Subject
+        field_name = 'Subject' # Description lines follow Subject
         fields = parse_keyvals(TestMbox.mbox)
-        description = ' '.join(fields[_field_name].splitlines()[1:]).strip()
-        self.assertTrue(description)        
+        #description = 'asd\nqwe\nqeyqwuiey' #' '.join(fields[field_name].splitlines()[1:]).strip()
+        description = fields[field_name]
+        print '<< Description found: %s >>' % description
+        self.assertTrue(description)

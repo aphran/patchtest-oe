@@ -3,17 +3,17 @@ import os
 from patchtestargs import PatchTestArgs as pta
 from repo import Repo
 import unittest
+import requests
 
-def find_lines(path, key):
+def find_lines(lines, key):
     """ Returns the lines containing the key """
     _lines = []
-    with open(path) as f:
-        for line in f.readlines():
-            if line.find(key) != -1:
-                _lines.append(line)
+    for line in lines:
+        if line.find(key) != -1:
+            _lines.append(line)
     return _lines
 
-@unittest.skipUnless(pta.mbox, "requires the mbox argument")
+@unittest.skipUnless(pta.mbox or pta.series, "requires the mbox or series argument")
 class TestMbox(unittest.TestCase):
     """ A testcase containing (mbox formatted) patch related tests"""
 
@@ -21,12 +21,16 @@ class TestMbox(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # consider these variables monkey typed
-        cls.mbox = os.path.abspath(pta.mbox)
+        cls.mbox = None
+        mboxurl = Repo(pta.repodir, mbox=pta.mbox, series=pta.series, revision=pta.revision).mbox
 
-    def test_patch_files(self):
-        """ Check if the mbox items are actual files """
-        self.assertTrue(os.path.isfile(TestMbox.mbox))
+        # the mbox can be either a file or an URL, so get content in both cases
+        if mboxurl.startswith('http'):
+            r = requests.get(mboxurl)
+            cls.mbox = r.text.split('\n')
+        else:
+            with open(os.path.abspath(mboxurl)) as f:
+                 cls.mbox = f.readlines()
 
     def test_signed_off_by(self):
         """ Check signed off by is present in each file """

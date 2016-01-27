@@ -4,6 +4,7 @@ from patchtestargs import PatchTestArgs as pta
 from repo import Repo
 import unittest
 import requests
+import re
 
 def find_lines(lines, key):
     """ Returns the lines containing the key """
@@ -12,6 +13,25 @@ def find_lines(lines, key):
         if line.find(key) != -1:
             _lines.append(line)
     return _lines
+
+def parse_keyvals(patchfile, pattern=r'^([\w-]+):\s(.+)', endstr='---'):
+    """ Parse a patch file for key value pairs. The optional pattern argument
+        specifies how to find those key pairs (should return two match groups
+        and the endstr argument specifies where to stop parsing."""
+
+    with open(patchfile) as content_file:
+        _current_key, _keyvals = None, {}
+        for line in content_file:
+            if line.startswith(endstr):
+                break
+            match = re.match(pattern, line)
+            if match:
+                groups = match.groups()
+                _current_key = groups[0]
+                _keyvals[_current_key] = groups[1].strip()
+            elif _current_key:
+                _keyvals[_current_key] += '%s' % line
+    return _keyvals
 
 @unittest.skipUnless(pta.mbox or pta.series, "requires the mbox or series argument")
 class TestMbox(unittest.TestCase):
@@ -41,14 +61,10 @@ class TestMbox(unittest.TestCase):
         for line in find_lines(TestMbox.mbox, 'Upstream-Status:'):
             self.assertTrue([valid for valid in TestMbox.valid_upstream_status if valid in line], "Invalid Upstream-Status: %s" % line)
 
-    # def test_summary_length(self):
-    #     """ Check for a summary length"""
-    #     lines = find_lines(TestMbox.mbox, 'Subject:')
-    #     self.assertTrue(line, 'summary should be present')
-    #     subject = lines[0]
-    #     liens.split(':')
-    #     #for file in cls.mbox:
-    #     	#	summary = None #what do I do here
-    #     	#	check if patchwork has this
-    #     	self.assertTrue(True)
-
+    def test_summary_length(self):
+        """ Check for a summary length"""
+        _field_name = 'Subject'
+        _field_min_len = 78
+        fields = parse_keyvals(Test.Mbox.mbox)
+        summary = fields[_field_name].splitlines()[(0)]
+        self.assertTrue(len(summary) <= _field_min_len)

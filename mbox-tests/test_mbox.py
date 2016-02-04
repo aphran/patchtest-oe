@@ -1,38 +1,23 @@
-from subprocess import Popen, PIPE
 import os
-from patchtestargs import PatchTestArgs as pta
-from repo import Repo
+import re
 import unittest
 import requests
-import re
+from patchtestargs import PatchTestArgs as pta
+from repo import Repo
 
-def find_lines(lines, key):
-    """ Returns the lines containing the key """
-    _lines = []
-    for line in lines:
-        if line.find(key) != -1:
-            _lines.append(line)
-    return _lines
-
-def parse_keyvals(lines, pattern=r'^([\w-]+):\s(.+)', endstr='---'):
-    """ Parse a patch file for key value pairs. The optional pattern argument
-        specifies how to find those key pairs (should return two match groups
-        and the endstr argument specifies where to stop parsing."""
-
-    _keyvals = {}
-    _text = ''
-    for line in lines:
-        if line.startswith(endstr):
-            break
-        _text += line
-    return _text.split(pattern)
+# The "ptsutils" module is needed, add it from the usual location
+import sys
+_libdir = '../lib'
+_libpath = os.path.realpath(os.path.join(os.path.dirname(__file__), _libdir))
+sys.path.insert(0, _libpath)
+import ptsutils
 
 @unittest.skipUnless(pta.mbox or pta.series, "requires the mbox or series argument")
 class TestMbox(unittest.TestCase):
     """ A testcase containing (mbox formatted) patch related tests"""
 
     valid_upstream_status = ['Pending', 'Submitted', 'Accepted', 'Backport', 'Denied', 'Inappropriate']
-    field_max_len = 78
+    max_len = 78
 
     @classmethod
     def setUpClass(cls):
@@ -42,36 +27,44 @@ class TestMbox(unittest.TestCase):
         # the mbox can be either a file or an URL, so get content in both cases
         if item.startswith('http'):
             r = requests.get(item)
-            cls.mbox = r.text.split('\n')
+            cls.mbox = r.text
         else:
             with open(os.path.abspath(item)) as f:
-                 cls.mbox = f.readlines()
+                 cls.mbox = f.read()
         if not ''.join(cls.mbox).strip():
             raise(AssertionError, 'mbox should not be empty')
 
+        (cls.keyvals, cls.chgfiles, cls.patchdiff) = ptsutils.get_patch_text_info(cls.mbox)
+        print cls.keyvals
+
     def test_signed_off_by(self):
-        """ Check signed off by is present in each file """
-        self.assertTrue(find_lines(TestMbox.mbox, 'Signed-off-by:'), "signed-off-by line missing or incorrect")
+        """ Check Signed-off-by presence"""
+        self.assertTrue('Signed-off-by' in TestMbox.keyvals, "Signed-off-by should be in mbox commit message")
 
-    def test_upsteam_status(self):
-        """ Check upstream status is present in each file """
-        for line in find_lines(TestMbox.mbox, 'Upstream-Status:'):
-            self.assertTrue([valid for valid in TestMbox.valid_upstream_status if valid in line], "Invalid Upstream-Status: %s" % line)
+    def test_upstream_status(self):
+        """ Check Upstream-Status is if present"""
+        if 'Upstream-Status' not in TestMbox.keyvals:
+            raise unittest.SkipTest('Upstream-Status must be present to check its validity')
+        else:
+            for status in TestMbox.keyvals['Upstream-Status']:
+                self.assertTrue([valid for valid in TestMbox.valid_upstream_status if valid == status], "Invalid Upstream-Status: %s" % status)
 
-    def test_summary_length(self):
-        """ Check for a summary length"""
-        _field = 'Subject: '
-        _max = TestMbox.field_max_len
-        summary = ' '.join(find_lines(TestMbox.mbox, _field))
-        summary = re.sub('%s|\[[\w_/ -]*\] ' % _field, '',summary)
-        print '<<Summary found: %s>>' % summary
-        self.assertTrue(len(summary) <= _max, "summary too long, it should be at most %s characters. The summary is '%s'" % (TestMbox.field_max_len, summary))
+    def test_subject(self):
+        """ Check Subject presence"""
+        self.assertTrue('Subject' in TestMbox.keyvals, "Subject should be in mbox commit message")
+
+    def test_subject_length(self):
+        """ Check Subject length if present"""
+        _key = 'Subject'
+        if _key not in TestMbox.keyvals:
+            raise unittest.SkipTest('Subject must be present to check its length')
+        else:
+            _val = TestMbox.keyvals[_key]
+            self.assertTrue(len(_val) <= TestMbox.max_len, "%s too long, should be at most %s characters. Its value is '%s'" % (_key, TestMbox.max_len, _val))
 
     def test_description(self):
-        """ Check description is present"""
-        field_name = 'Subject' # Description lines follow Subject
-        fields = parse_keyvals(TestMbox.mbox)
-        #description = 'asd\nqwe\nqeyqwuiey' #' '.join(fields[field_name].splitlines()[1:]).strip()
-        description = fields[field_name]
-        print '<< Description found: %s >>' % description
-        self.assertTrue(description)
+        """ Check Description presence"""
+        # info: the Description field is obtained through pt-suites "ptsutils" module,
+        #       from the Subject field. It is usually not a field that is present in
+        #       mbox patch files.
+        self.assertTrue('Description' in TestMbox.keyvals, "A Description should exist")

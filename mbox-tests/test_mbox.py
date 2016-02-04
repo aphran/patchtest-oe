@@ -35,13 +35,31 @@ class TestMbox(unittest.TestCase):
             raise(AssertionError, 'mbox should not be empty')
 
         (cls.keyvals, cls.chgfiles, cls.patchdiff) = ptsutils.get_patch_text_info(cls.mbox)
-        print cls.keyvals
 
     def test_signed_off_by(self):
         """ Check Signed-off-by presence"""
         self.assertTrue('Signed-off-by' in TestMbox.keyvals, "Signed-off-by should be in mbox commit message")
 
-    def test_upstream_status(self):
+    def test_signed_off_by_spelling(self):
+        """ Check Signed-off-by correct spelling"""
+        _keys = TestMbox.keyvals.keys()
+        _lc_keys = set( ( k.lower() for k in _keys ) )
+        _alt = set( ('signed-off-by', 'signed-off_by', 'signed_off-by', 'signed_off_by') )
+        if not _alt.intersection(_lc_keys):
+            raise unittest.SkipTest('Signed-off-by must be present to check its spelling')
+        else:
+            self.assertTrue('Signed-off-by' in _keys, "Signed-off-by seems to be mispelled")
+
+    def test_upstream_status_spelling(self):
+        """ Check Upstream-Status correct spelling"""
+        _keys = TestMbox.keyvals.keys()
+        _lc_keys = [k.lower() for k in _keys]
+        if not ('upstream-status' in _lc_keys or 'upstream_status' in _lc_keys):
+            raise unittest.SkipTest('Upstream-Status must be present to check its spelling')
+        else:
+            self.assertTrue('Upstream-Status' in _keys, "Upstream-Status seems to be mispelled")
+
+    def test_upstream_status_value(self):
         """ Check Upstream-Status is if present"""
         if 'Upstream-Status' not in TestMbox.keyvals:
             raise unittest.SkipTest('Upstream-Status must be present to check its validity')

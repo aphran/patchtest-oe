@@ -40,10 +40,22 @@ def parse_for_files(text, pattern='^[ ]*([\w /_.-]+)[ ]+[|].*', end='.*file[\w]?
             files.append(m.groups()[0].strip())
     return files
 
+def parse_file_hunks(text):
+    """ From a patch diff buffer, parse hunk sections and return them as grouped tuples"""
+    _hunks = []
+    _pattern = '\n--- a/[\w /_.-]+.*\n[+]{3} b/([\w /_.-]+).*\n@@ [\d,+-]+ [+-]([\d]+),([\d]+) @@.*'
+    _len = 3
+    _match = re.search(_pattern, text)
+    if _match:
+        _groups = _match.groups()
+        if _groups:
+            _hunks = zip(*[iter(_groups)] * _len)
+    return _hunks
+
 def read_file(f):
     text = None
     with open(f) as fb:
-        text = fb.read().decode('utf-8')
+        text = fb.read()
     return text
 
 def get_patch_text_info(patchtext):
@@ -65,7 +77,7 @@ def get_patch_text_info(patchtext):
     keyvals = parse_keyvals(cmt_head)
     chgfiles = parse_for_files(cmt_tail)
 
-    return (keyvals, chgfiles, patchbuf)
+    return (keyvals, chgfiles, patchbuf, parse_file_hunks(patchbuf))
 
 def get_patch_info(patchfile):
     patchtext = read_file(patchfile)

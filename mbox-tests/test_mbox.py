@@ -21,68 +21,78 @@ class TestMbox(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.mbox = None
-        item = Repo(pta.repodir, mbox=pta.mbox, series=pta.series, revision=pta.revision, commit=pta.commit, branch=pta.branch).item
+        cls.items = Repo(pta.repodir, mbox=pta.mbox, series=pta.series, revision=pta.revision, commit=pta.commit, branch=pta.branch).items
 
-        # the mbox can be either a file or an URL, so get content in both cases
-        if item.startswith('http'):
-            r = requests.get(item)
-            cls.mbox = r.text
-        else:
-            with open(os.path.abspath(item)) as f:
-                 cls.mbox = f.read()
-        if not ''.join(cls.mbox).strip():
-            raise(AssertionError, 'mbox should not be empty')
-
-        (cls.keyvals, cls.chgfiles, cls.patchdiff) = ptsutils.get_patch_text_info(cls.mbox)
+        for _item in cls.items:
+            if _item.is_empty:
+                raise(AssertionError, 'mbox should not be empty')
+            else:
+                (_item.keyvals, _item.chgfiles, _item.patchdiff, _item.hunks) = ptsutils.get_patch_text_info(_item.contents)
 
     def test_signed_off_by(self):
         """ Check Signed-off-by presence"""
-        self.assertTrue('Signed-off-by' in TestMbox.keyvals, "Signed-off-by should be in mbox commit message")
+        for _item in self.items:
+            self.assertTrue('Signed-off-by' in _item.keyvals, 'Signed-off-by absent from commit message')
 
     def test_signed_off_by_spelling(self):
         """ Check Signed-off-by correct spelling"""
-        _keys = TestMbox.keyvals.keys()
-        _lc_keys = set( ( k.lower() for k in _keys ) )
-        _alt = set( ('signed-off-by', 'signed-off_by', 'signed_off-by', 'signed_off_by') )
-        if not _alt.intersection(_lc_keys):
-            raise unittest.SkipTest('Signed-off-by must be present to check its spelling')
-        else:
-            self.assertTrue('Signed-off-by' in _keys, "Signed-off-by seems to be mispelled")
+        for _item in self.items:
+            _keys = _item.keyvals.keys()
+            _lc_keys = set( ( k.lower() for k in _keys ) )
+            _alt = set( ('signed-off-by', 'signed-off_by', 'signed_off-by', 'signed_off_by') )
+            if not _alt.intersection(_lc_keys):
+                raise unittest.SkipTest('Signed-off-by must be present to check its spelling')
+            else:
+                self.assertTrue('Signed-off-by' in _keys, "Signed-off-by seems to be mispelled")
 
     def test_upstream_status_spelling(self):
         """ Check Upstream-Status correct spelling"""
-        _keys = TestMbox.keyvals.keys()
-        _lc_keys = [k.lower() for k in _keys]
-        if not ('upstream-status' in _lc_keys or 'upstream_status' in _lc_keys):
-            raise unittest.SkipTest('Upstream-Status must be present to check its spelling')
-        else:
-            self.assertTrue('Upstream-Status' in _keys, "Upstream-Status seems to be mispelled")
+        for _item in self.items:
+            _keys = _item.keyvals.keys()
+            _lc_keys = [k.lower() for k in _keys]
+            if not ('upstream-status' in _lc_keys or 'upstream_status' in _lc_keys):
+                raise unittest.SkipTest('Upstream-Status must be present to check its spelling')
+            else:
+                self.assertTrue('Upstream-Status' in _keys, "Upstream-Status seems to be mispelled")
 
     def test_upstream_status_value(self):
         """ Check Upstream-Status is if present"""
-        if 'Upstream-Status' not in TestMbox.keyvals:
-            raise unittest.SkipTest('Upstream-Status must be present to check its validity')
-        else:
-            for status in TestMbox.keyvals['Upstream-Status']:
-                self.assertTrue([valid for valid in TestMbox.valid_upstream_status if valid == status], "Invalid Upstream-Status: %s" % status)
+        for _item in self.items:
+            if 'Upstream-Status' not in _item.keyvals:
+                raise unittest.SkipTest('Upstream-Status must be present to check its validity')
+            else:
+                for _st in _item.keyvals['Upstream-Status']:
+                    self.assertTrue([valid for valid in TestMbox.valid_upstream_status if valid == _st], "Invalid Upstream-Status: %s" % _st)
 
     def test_subject(self):
         """ Check Subject presence"""
-        self.assertTrue('Subject' in TestMbox.keyvals, "Subject should be in mbox commit message")
+        for _item in self.items:
+            self.assertTrue('Subject' in _item.keyvals, "Subject should be in mbox commit message")
 
     def test_subject_length(self):
         """ Check Subject length if present"""
-        _key = 'Subject'
-        if _key not in TestMbox.keyvals:
-            raise unittest.SkipTest('Subject must be present to check its length')
-        else:
-            _val = TestMbox.keyvals[_key]
-            self.assertTrue(len(_val) <= TestMbox.max_len, "%s too long, should be at most %s characters. Its value is '%s'" % (_key, TestMbox.max_len, _val))
+        for _item in self.items:
+            _key = 'Subject'
+            if _key not in _item.keyvals:
+                raise unittest.SkipTest('Subject must be present to check its length')
+            else:
+                _val = _item.keyvals[_key]
+                self.assertTrue(len(_val) <= TestMbox.max_len, "%s too long, should be at most %s characters. Its value is '%s'" % (_key, TestMbox.max_len, _val))
 
     def test_description(self):
         """ Check Description presence"""
         # info: the Description field is obtained through pt-suites "ptsutils" module,
         #       from the Subject field. It is usually not a field that is present in
         #       mbox patch files.
-        self.assertTrue('Description' in TestMbox.keyvals, "A Description should exist")
+        for _item in self.items:
+            self.assertTrue('Description' in _item.keyvals, "A Description should exist")
+
+#    def test_hunks(self):
+#        """ Obtain changed python lines, compare with pylint"""
+#        _hunks = TestMbox.hunks
+#        if _hunks:
+#            for _ in _hunks:
+#                print(str(_))
+#            self.assertTrue(True, "All good, sailor!")
+#        else:
+#            raise AssertionError

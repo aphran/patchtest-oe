@@ -1,13 +1,14 @@
-from subprocess import Popen, PIPE
 import os
-import patchtest
 import unittest
+from subprocess import Popen, PIPE
+from patchtestdata import PatchTestInput as pti
 
 class TestParse(unittest.TestCase):
     """ Test parsing using oe-selftest"""
+
     @classmethod
     def setUpClass(cls):
-        cls.repodir = patchtest.PatchTestArgs.repodir
+        cls.repodir = pti.repodir
         cls.bb_init_file = os.path.join(cls.repodir, 'oe-init-build-env')
 
     def test_bb_init_script(self):

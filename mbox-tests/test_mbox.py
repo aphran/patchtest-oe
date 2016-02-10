@@ -2,8 +2,7 @@ import os
 import re
 import unittest
 import requests
-from patchtestargs import PatchTestArgs as pta
-from repo import Repo
+from patchtestdata import PatchTestInput as pti
 
 # The "ptsutils" module is needed, add it from the usual location
 import sys
@@ -12,7 +11,7 @@ _libpath = os.path.realpath(os.path.join(os.path.dirname(__file__), _libdir))
 sys.path.insert(0, _libpath)
 import ptsutils
 
-@unittest.skipUnless(pta.mbox or pta.series, "requires the mbox or series argument")
+@unittest.skipUnless(pti.mbox or pti.series, "requires the mbox or series argument")
 class TestMbox(unittest.TestCase):
     """ A testcase containing (mbox formatted) patch related tests"""
 
@@ -21,18 +20,21 @@ class TestMbox(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.items = Repo(pta.repodir, mbox=pta.mbox, series=pta.series, revision=pta.revision, commit=pta.commit, branch=pta.branch).items
+        cls.items = pti.repo.items
 
         for _item in cls.items:
             if _item.is_empty:
                 raise(AssertionError, 'mbox should not be empty')
             else:
-                (_item.keyvals, _item.chgfiles, _item.patchdiff, _item.hunks) = ptsutils.get_patch_text_info(_item.contents)
+                _item.keyvals, _item.patchdiff, _item.hunks = ptsutils.get_patch_text_info(_item.contents)
 
     def test_signed_off_by(self):
         """ Check Signed-off-by presence"""
         for _item in self.items:
-            self.assertTrue('Signed-off-by' in _item.keyvals, 'Signed-off-by absent from commit message')
+            _signoff = True if 'Signed-off-by' in _item.keyvals else False
+            self.assertTrue(_signoff, 'Signed-off-by absent from commit message')
+            if _signoff:
+                self.assertTrue(''.join(_item.keyvals['Signed-off-by']).strip(), 'Singed-off-by should not be empty')
 
     def test_signed_off_by_spelling(self):
         """ Check Signed-off-by correct spelling"""
@@ -85,7 +87,10 @@ class TestMbox(unittest.TestCase):
         #       from the Subject field. It is usually not a field that is present in
         #       mbox patch files.
         for _item in self.items:
-            self.assertTrue('Description' in _item.keyvals, "A Description should exist")
+            _hasdesc = True if 'Description' in _item.keyvals else False
+            self.assertTrue(_hasdesc, "A Description should exist")
+            if _hasdesc:
+                self.assertTrue(''.join(_item.keyvals['Description']).strip(), 'Description should not be empty')
 
 #    def test_hunks(self):
 #        """ Obtain changed python lines, compare with pylint"""

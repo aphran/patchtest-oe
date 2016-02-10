@@ -7,24 +7,20 @@ def append_new(d, k, v):
     else:
         d[k] = [v]
 
-def parse_keyvals(text, pattern='\n([\w-]+):\s'):
+def parse_keyvals(text, pattern='^([\w-]+):\s+(.*)$'):
     """ Parse a patch file or fragment for key-value pairs. The optional pattern
         argument specifies how to find those key-value pairs (should return two
-        match groups); the endstr argument specifies where to stop parsing.
+        match groups)
     """
     keyvals = {}
-    dict_chunks = re.split(pattern, text)
-    for key, val in zip(dict_chunks[1::2], dict_chunks[2::2]):
-        for line in val.strip().splitlines():
-            if line: append_new(keyvals, key, line)
-
-    # handle Subject and description
-    key = 'Subject'
-    if key in keyvals:
-        sublines = keyvals[key]
-        keyvals[key] = [sublines[0]]
-        keyvals['Description'] = sublines[1:]
-
+    for _line in [ _.strip() for _ in text.splitlines()[1:] ]:
+        _m = re.match(pattern, _line)
+        if _m and _m.groups():
+            _k, _v = _m.groups()
+            append_new(keyvals, _k, _v)
+        else:
+            if _line:
+                append_new(keyvals, 'Description', _line)
     return keyvals
 
 def parse_for_files(text, pattern='^[ ]*([\w /_.-]+)[ ]+[|].*', end='.*file[\w]?[ ]changed'):
@@ -40,17 +36,17 @@ def parse_for_files(text, pattern='^[ ]*([\w /_.-]+)[ ]+[|].*', end='.*file[\w]?
             files.append(m.groups()[0].strip())
     return files
 
-def parse_file_hunks(text):
-    """ From a patch diff buffer, parse hunk sections and return them as grouped tuples"""
-    _hunks = []
-    _pattern = '\n--- a/[\w /_.-]+.*\n[+]{3} b/([\w /_.-]+).*\n@@ [\d,+-]+ [+-]([\d]+),([\d]+) @@.*'
-    _len = 3
-    _match = re.search(_pattern, text)
-    if _match:
-        _groups = _match.groups()
-        if _groups:
-            _hunks = zip(*[iter(_groups)] * _len)
-    return _hunks
+#def parse_file_hunks(text):
+#    """ From a patch diff buffer, parse hunk sections and return them as grouped tuples"""
+#    _hunks = []
+#    _pattern = '\n--- a/[\w /_.-]+.*\n[+]{3} b/([\w /_.-]+).*\n@@ [\d,+-]+ [+-]([\d]+),([\d]+) @@.*'
+#    _len = 3
+#    _match = re.search(_pattern, text)
+#    if _match:
+#        _groups = _match.groups()
+#        if _groups:
+#            _hunks = zip(*[iter(_groups)] * _len)
+#    return _hunks
 
 def read_file(f):
     text = None
@@ -60,24 +56,21 @@ def read_file(f):
 
 def get_patch_text_info(patchtext):
     keyvals = {}
-    chgfiles = []
-    patchbuf = ''
-    cmt_head = ''
-    cmt_tail = ''
-
-    cmt_sep = '---'
-
+    hunks = {}
+    patchbuf = cmt_buf = ''
+    cmt_seps = ('---', 'diff')
     patchbuf, cmt_buf = parse_patch(patchtext)
+    cmt_head = cmt_buf
 
-    sep_index = cmt_buf.find(cmt_sep) or None
-    if sep_index >= 0:
-        cmt_head = cmt_buf[:sep_index]
-        cmt_tail = cmt_buf[sep_index + len(cmt_sep) - 1:]
+    for _sep in cmt_seps:
+        sep_index = cmt_buf.find(_sep)
+        if sep_index >= 0:
+            cmt_head = cmt_buf[:sep_index]
+            break
 
     keyvals = parse_keyvals(cmt_head)
-    chgfiles = parse_for_files(cmt_tail)
 
-    return (keyvals, chgfiles, patchbuf, parse_file_hunks(patchbuf))
+    return (keyvals, patchbuf, hunks)
 
 def get_patch_info(patchfile):
     patchtext = read_file(patchfile)

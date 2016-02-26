@@ -25,8 +25,6 @@ class TestMbox(unittest.TestCase):
         for _item in cls.items:
             if _item.is_empty:
                 raise(AssertionError, 'mbox should not be empty')
-            else:
-                _item.keyvals, _item.patchdiff, _item.hunks = ptsutils.get_patch_text_info(_item.contents)
 
     def test_signed_off_by(self):
         """ Check Signed-off-by presence"""
@@ -92,12 +90,22 @@ class TestMbox(unittest.TestCase):
             if _hasdesc:
                 self.assertTrue(''.join(_item.keyvals['Description']).strip(), 'Description should not be empty')
 
-#    def test_hunks(self):
-#        """ Obtain changed python lines, compare with pylint"""
-#        _hunks = TestMbox.hunks
-#        if _hunks:
-#            for _ in _hunks:
-#                print(str(_))
-#            self.assertTrue(True, "All good, sailor!")
-#        else:
-#            raise AssertionError
+    def test_changes_exist(self):
+        """ Check there are changed files"""
+        for _item in self.items:
+            changes = _item.changes
+            self.assertTrue(len(changes) > 0, "There should be changed files")
+
+    def test_pylint(self):
+        """ Obtain changed python lines, compare with pylint"""
+        pychanges = []
+        for _item in self.items:
+            for f in [ _ for _ in _item.changes.modified_files if _.path.endswith('.py') ]:
+                pychanges.append(f)
+        if not pychanges:
+            unittest.SkipTest('Python changes must exist to run pylint')
+        else:
+            print("there are pythings")
+            for pc in pychanges:
+                print(pc.path)
+                self.assertTrue(len(pc) > 0)

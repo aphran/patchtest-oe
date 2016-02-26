@@ -1,5 +1,6 @@
 import re
 from patchwork_parser import parse_patch
+import unidiff
 
 def append_new(d, k, v):
     if k in d:
@@ -36,6 +37,9 @@ def parse_for_files(text, pattern='^[ ]*([\w /_.-]+)[ ]+[|].*', end='.*file[\w]?
             files.append(m.groups()[0].strip())
     return files
 
+def parse_file_hunks(text):
+    return unidiff.PatchSet(text)
+
 #def parse_file_hunks(text):
 #    """ From a patch diff buffer, parse hunk sections and return them as grouped tuples"""
 #    _hunks = []
@@ -56,7 +60,7 @@ def read_file(f):
 
 def get_patch_text_info(patchtext):
     keyvals = {}
-    hunks = {}
+    hunks = None
     patchbuf = cmt_buf = ''
     cmt_seps = ('---', 'diff')
     patchbuf, cmt_buf = parse_patch(patchtext)
@@ -69,6 +73,9 @@ def get_patch_text_info(patchtext):
             break
 
     keyvals = parse_keyvals(cmt_head)
+    
+    hunks = parse_file_hunks(patchtext)
+    from pprint import pprint; pprint(hunks)
 
     return (keyvals, patchbuf, hunks)
 

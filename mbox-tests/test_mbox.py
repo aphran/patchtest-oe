@@ -3,13 +3,7 @@ import re
 import unittest
 import requests
 from patchtestdata import PatchTestInput as pti
-
-# The "ptsutils" module is needed, add it from the usual location
 import sys
-_libdir = '../lib'
-_libpath = os.path.realpath(os.path.join(os.path.dirname(__file__), _libdir))
-sys.path.insert(0, _libpath)
-import ptsutils
 
 @unittest.skipUnless(pti.mbox or pti.series, "requires the mbox or series argument")
 class TestMbox(unittest.TestCase):
@@ -25,16 +19,15 @@ class TestMbox(unittest.TestCase):
         for _item in cls.items:
             if _item.is_empty:
                 raise(AssertionError, 'mbox should not be empty')
-            else:
-                _item.keyvals, _item.patchdiff, _item.hunks = ptsutils.get_patch_text_info(_item.contents)
 
     def test_signed_off_by(self):
         """ Check Signed-off-by presence"""
         for _item in self.items:
-            _signoff = True if 'Signed-off-by' in _item.keyvals else False
+            _keyvals = _item.keyvals
+            _signoff = True if 'Signed-off-by' in _keyvals else False
             self.assertTrue(_signoff, 'Signed-off-by absent from commit message')
             if _signoff:
-                self.assertTrue(''.join(_item.keyvals['Signed-off-by']).strip(), 'Singed-off-by should not be empty')
+                self.assertTrue(''.join(_keyvals['Signed-off-by']).strip(), 'Singed-off-by should not be empty')
 
     def test_signed_off_by_spelling(self):
         """ Check Signed-off-by correct spelling"""
@@ -83,21 +76,32 @@ class TestMbox(unittest.TestCase):
 
     def test_description(self):
         """ Check Description presence"""
-        # info: the Description field is obtained through pt-suites "ptsutils" module,
-        #       from the Subject field. It is usually not a field that is present in
-        #       mbox patch files.
         for _item in self.items:
             _hasdesc = True if 'Description' in _item.keyvals else False
             self.assertTrue(_hasdesc, "A Description should exist")
             if _hasdesc:
                 self.assertTrue(''.join(_item.keyvals['Description']).strip(), 'Description should not be empty')
 
-#    def test_hunks(self):
-#        """ Obtain changed python lines, compare with pylint"""
-#        _hunks = TestMbox.hunks
-#        if _hunks:
-#            for _ in _hunks:
-#                print(str(_))
-#            self.assertTrue(True, "All good, sailor!")
-#        else:
-#            raise AssertionError
+    def test_changes_exist(self):
+        """ Check there are changed files"""
+        for _item in self.items:
+            changes = _item.changes
+            self.assertTrue(len(changes) > 0, "There should be changed files")
+
+    def test_pylint(self):
+        """ Obtain changed python lines, compare with pylint"""
+        pych = {}
+        for _item in self.items:
+            if _item.changes:
+                for pf in [ _ for _ in _item.changes.modified_files if _.path.endswith('.py') ]:
+                    pych[pf.path] = []
+        if not pych:
+            raise unittest.SkipTest('Python changes must exist to run pylint')
+        else:
+            from pylint import epylint as lint
+            for pf in pych.keys():
+                (pylo, _) = lint.py_run(pf, return_std=True)
+                pych[pf] += [ line.strip() for line in pylo.readlines()[1:] ]
+                #for line in pych[pf]:
+                #    print("%s" % line)
+                self.assertFalse([pf for pf in pych.keys() if len(pych[pf]) > 0 ],"Any pylint output causes a failure")

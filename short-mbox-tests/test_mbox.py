@@ -19,7 +19,7 @@ class TestMbox(unittest.TestCase):
     def test_patch_format(self):
         """ Check patch has valid formatting """
         # Checks for emptiness and changed files
-        for _item in cls.items:
+        for _item in self.items:
             self.assertFalse(_item.is_empty, 'Mbox should not be empty')
             self.assertGreater(len(_item.changes), 0, "There should be changed files")
 
@@ -50,9 +50,10 @@ class TestMbox(unittest.TestCase):
 
     def test_subject_check(self):
         """ Check Subject presence and length"""
+        _key = 'Subject'
         for _item in self.items:
             if _key not in _item.keyvals:
-                raise AssertionError('Subject line missing')
+                raise AssertionError('%s line missing' % _key)
             else:
                 _val = _item.keyvals[_key]
                 self.assertLessEqual(len(_val), TestMbox.max_len, "%s too long, should be at most %s characters. Its value is '%s'" % (_key, TestMbox.max_len, _val))

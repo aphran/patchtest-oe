@@ -16,7 +16,7 @@ class TestMbox(unittest.TestCase):
     def setUpClass(cls):
         cls.items = pti.repo.items
 
-    def test_patch_format(self)
+    def test_patch_format(self):
         """ Check patch has valid formatting """
         # Checks for emptiness and changed files
         for _item in cls.items:

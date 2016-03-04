@@ -49,7 +49,7 @@ class TestMbox(unittest.TestCase):
                     self.assertTrue([valid for valid in TestMbox.valid_upstream_status if valid == _st], "Invalid Upstream-Status: %s" % _st)
 
     def test_subject_check(self):
-        """ Check Subject presence and length"""
+        """ Check Subject presence, length, contents"""
         _key = 'Subject'
         for _item in self.items:
             if _key not in _item.keyvals:
@@ -57,14 +57,17 @@ class TestMbox(unittest.TestCase):
             else:
                 _val = _item.keyvals[_key]
                 self.assertLessEqual(len(_val), TestMbox.max_len, "%s too long, should be at most %s characters. Its value is '%s'" % (_key, TestMbox.max_len, _val))
+                self.assertIn(':', _val, "%s doesn't include a colon, possibly missing component")
 
-    def test_description(self):
-        """ Check Description presence"""
+    def test_long_log(self):
+        """ Check long log presence, contents"""
+        _key = 'Description'
         for _item in self.items:
-            _hasdesc = True if 'Description' in _item.keyvals else False
-            self.assertTrue(_hasdesc, "A Description should exist")
+            _hasdesc = True if _key in _item.keyvals.keys() else False
+            self.assertTrue(_hasdesc, "A long log should exist")
             if _hasdesc:
-                self.assertTrue(''.join(_item.keyvals['Description']).strip(), 'Description should not be empty')
+                self.assertTrue(''.join(_item.keyvals[_key]).strip(), 'Long log should not be empty')
+                self.assertNotEquals(_item.keyvals[_key].strip(), _item.keyvals['Summary'].strip(), "Short and long logs should not be the same")
 
     def test_pylint(self):
         """ Obtain changed python lines, compare with pylint"""

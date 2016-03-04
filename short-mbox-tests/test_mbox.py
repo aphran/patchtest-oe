@@ -17,7 +17,7 @@ class TestMbox(unittest.TestCase):
         cls.items = pti.repo.items
 
     def test_patch_format(self):
-        """ Check patch has valid formatting """
+        """ Format check: patch is not empty and changes files"""
         # Checks for emptiness and changed files
         for _item in self.items:
             self.assertFalse(_item.is_empty, 'Mbox should not be empty')
@@ -67,7 +67,7 @@ class TestMbox(unittest.TestCase):
             self.assertTrue(_hasdesc, "A long log should exist")
             if _hasdesc:
                 self.assertTrue(''.join(_item.keyvals[_key]).strip(), 'Long log should not be empty')
-                self.assertNotEquals(_item.keyvals[_key].strip(), _item.keyvals['Summary'].strip(), "Short and long logs should not be the same")
+                self.assertNotEquals(i''.join(_item.keyvals[_key]).strip(), _item.keyvals['Summary'].strip(), "Short and long logs should not be the same")
 
     def test_pylint(self):
         """ Obtain changed python lines, compare with pylint"""

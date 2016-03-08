@@ -2,8 +2,11 @@ import os
 import re
 import unittest
 import requests
-from patchtestdata import PatchTestInput as pti
 import sys
+from patchtestdata import PatchTestInput as pti
+from difflib import context_diff as diffs
+from patchtestdata import PatchTestDataStore as ds
+import logging
 
 @unittest.skipUnless(pti.mbox or pti.series, "requires the mbox or series argument")
 class TestMbox(unittest.TestCase):
@@ -11,6 +14,7 @@ class TestMbox(unittest.TestCase):
 
     valid_upstream_status = ['Pending', 'Submitted', 'Accepted', 'Backport', 'Denied', 'Inappropriate']
     max_len = 78
+    logger = logging.getLogger('patchtest')
 
     @classmethod
     def setUpClass(cls):
@@ -55,7 +59,7 @@ class TestMbox(unittest.TestCase):
             if _key not in _item.keyvals:
                 raise AssertionError('%s line missing' % _key)
             else:
-                _val = _item.keyvals[_key]
+                _val = ''.join(_item.keyvals[_key]).strip()
                 self.assertLessEqual(len(_val), TestMbox.max_len, "%s too long, should be at most %s characters. Its value is '%s'" % (_key, TestMbox.max_len, _val))
                 self.assertIn(':', _val, "%s doesn't include a colon, possibly missing component")
 
@@ -67,10 +71,20 @@ class TestMbox(unittest.TestCase):
             self.assertTrue(_hasdesc, "A long log should exist")
             if _hasdesc:
                 self.assertTrue(''.join(_item.keyvals[_key]).strip(), 'Long log should not be empty')
-                self.assertNotEquals(i''.join(_item.keyvals[_key]).strip(), _item.keyvals['Summary'].strip(), "Short and long logs should not be the same")
+                self.assertNotEquals(''.join(_item.keyvals[_key]).strip(), ''.join(_item.keyvals['Subject']).strip(), "Short and long logs should not be the same")
+
+    def pretest_pylint(self):
+        """ Run pylint on all modified python files, pre-merge"""
+        self.common_pylint()
 
     def test_pylint(self):
-        """ Obtain changed python lines, compare with pylint"""
+        """ Run pylint on all modified python files, post-merge"""
+        self.common_pylint()
+
+    def common_pylint(self):
+        """ Run pylint on all modified python files"""
+
+        # Find changed python files
         pych = {}
         for _item in self.items:
             if _item.changes:
@@ -78,11 +92,27 @@ class TestMbox(unittest.TestCase):
                     pych[pf.path] = []
         if not pych:
             raise unittest.SkipTest('Python changes must exist to run pylint')
+
+        # Run pylint on changed files and populate pych with findings
+        from pylint import epylint as lint
+        for pf in pych.keys():
+            (pylo, _) = lint.py_run(pf, return_std=True)
+            pych[pf] += [ line.strip() for line in pylo.readlines()[1:] ]
+
+        # Store the changes in data store
+        ds['pylint_new'] = set()
+        for chglist in pych.values():
+            for chg in chglist:
+                if chg:
+                    ds['pylint_new'].add(chg)
+
+        # Handle lint differences
+        pylint_diff = set()
+        if ds['pylint_old']:
+            # Running post-merge test
+            pylint_diff = ds['pylint_old'] ^ ds['pylint_new']
+            self.assertEquals(len(pylint_diff), 0, "Found new pylint issues: %s" % str(pylint_diff))
         else:
-            from pylint import epylint as lint
-            for pf in pych.keys():
-                (pylo, _) = lint.py_run(pf, return_std=True)
-                pych[pf] += [ line.strip() for line in pylo.readlines()[1:] ]
-                #for line in pych[pf]:
-                #    print("%s" % line)
-                self.assertFalse([pf for pf in pych.keys() if len(pych[pf]) > 0 ],"Any pylint output causes a failure")
+            # Running pre-merge test
+            ds['pylint_old'] = ds['pylint_new']
+            self.assertEquals(len(ds['pylint_new']), 0, "There are pylint issues")

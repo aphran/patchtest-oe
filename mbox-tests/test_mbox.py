@@ -7,6 +7,7 @@ from patchtestdata import PatchTestInput as pti
 from difflib import context_diff as diffs
 from patchtestdata import PatchTestDataStore as ds
 import logging
+logger = logging.getLogger('patchtest')
 
 @unittest.skipUnless(pti.mbox or pti.series, "requires the mbox or series argument")
 class TestMbox(unittest.TestCase):
@@ -14,7 +15,6 @@ class TestMbox(unittest.TestCase):
 
     valid_upstream_status = ['Pending', 'Submitted', 'Accepted', 'Backport', 'Denied', 'Inappropriate']
     max_len = 78
-    logger = logging.getLogger('patchtest')
 
     @classmethod
     def setUpClass(cls):
@@ -105,12 +105,23 @@ class TestMbox(unittest.TestCase):
             for chg in chglist:
                 if chg:
                     ds['pylint_new'].add(chg)
+        
+        # Show pylint issues
+        logger.warn("\n----- Pylint issues in current test run -----")
+        for _issue in ds['pylint_new']:
+            logger.warn("  %s" % _issue)
 
         # Handle lint differences
         pylint_diff = set()
         if ds['pylint_old']:
             # Running post-merge test
-            pylint_diff = ds['pylint_old'] ^ ds['pylint_new']
+            pylint_diff = ds['pylint_new'] - ds['pylint_old']
+
+            # Printing new issues
+            logger.warn("\n----- New Pylint issues -----")
+            for _issue in pylint_diff:
+                logger.warn("  %s" % _issue)
+
             self.assertEquals(len(pylint_diff), 0, "Found new pylint issues: %s" % str(pylint_diff))
         else:
             # Running pre-merge test

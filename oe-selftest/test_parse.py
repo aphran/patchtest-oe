@@ -11,12 +11,16 @@ class TestParse(unittest.TestCase):
         cls.repodir = pti.repodir
         cls.bb_init_file = os.path.join(cls.repodir, 'oe-init-build-env')
 
-    def test_bb_init_script(self):
-        """ Check if the bb init script is an actual file"""
-        self.assertTrue(os.path.isfile(self.bb_init_file))
+    def pretest_oe_selftest_parse(self):
+        """ A simple oe-selftest parse test, pre-merge"""
+        self.test_oe_selftest_parse()
 
     def test_oe_selftest_parse(self):
         """ A simple oe-selftest parse test"""
+
+        # Check if the bb init script is an actual file"""
+        self.assertTrue(os.path.isfile(self.bb_init_file))
+
         cmds = [
             'cd %s' % self.repodir,
             'source %s' % self.bb_init_file,
